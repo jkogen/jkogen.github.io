@@ -93,6 +93,7 @@
 
                     anzahlJeKwAuswerten();
                     medianJeKwAuswerten();
+                    medianJeTagAuswerten();
                 }
             }
 
@@ -150,6 +151,46 @@
                 });
             }
 
+            function medianJeTagAuswerten() {
+
+                var gruppierteDaten = wuerfelErgebnisse.reduce((accu, obj) => {
+                    const key = obj.datum.toISOString().split('T')[0];
+
+                    if(!accu[key]) {
+                        accu[key] = [];
+                    }
+
+                    accu[key].push(obj);
+                    return accu;
+                }, []);
+
+                var mediansJeTag = [];
+
+                Object.keys(gruppierteDaten).forEach(datum => {
+                    var medianAmTag = medianBerechnen(gruppierteDaten[datum]);
+                    mediansJeTag[datum] = medianAmTag;
+                });
+
+                var sortierteDaten = Object.keys(mediansJeTag)
+                                        .sort()
+                                        .reduce((acc, key) => {
+                                            acc[key] = mediansJeTag[key]
+                                            return acc;
+                                        }, []);
+
+                const canvas2dContext = document.getElementById('diagrammMedianJeTag').getContext('2d');
+                new Chart(canvas2dContext, {
+                    type: 'line',
+                    data: {
+                        labels: Object.keys(sortierteDaten),
+                        datasets: [{
+                            data: Object.values(sortierteDaten)
+                        }]
+
+                    }
+                });
+            }
+
             function medianJeKwAuswerten() {
                 const gruppiert = wuerfelErgebnisse.reduce((accumulator, wuerfelErgebnis) => {
                     const kkey = wuerfelErgebnis.jahrMonatKw;
@@ -171,7 +212,6 @@
                     medians[kw] = medianErgebnis;
                 });
 
-                //TODO richtig sortieren
                 var mediansSortiert = Object.keys(medians)
                     .sort()
                     .reduce((accumulator, key) => {
@@ -245,23 +285,35 @@
     </head>
 
     <body style="text-align:center">
-        <img src="cube.jpg" height="250px" style="border-radius: 20px"/>
-        <br />
-        <br />
-        <h1>Cube-Statistikboss</h1>
-        <hr>
-        <p>
-            Hier kannst du deine Cube-Files analysieren lassen
-            <br />
-            <br />
-            <input type="file" id="initFile" value="init.csv" style="display:none" />
-            <input class="form-control w-50 mx-auto" type="file" id="dateiEingabe" text="Upload .csv!" onchange="readFile()">
-            <br />
-            <br />
-        </p>
-
-        <div class="container" id="divErgebnisse" style="display:none">
+        <div class="container">
             <div class="row">
+                <div class="col">
+                    <img src="cube.jpg" height="250px" style="border-radius: 20px"/>
+                    <br />
+                    <br />
+                    <h1>Cube-Statistikboss</h1>
+                    <hr>
+                    <p>
+                        Hier kannst du deine Cube-Files analysieren lassen
+                        <br />
+                        <br />
+                        <input type="file" id="initFile" value="init.csv" style="display:none" />
+                        <input class="form-control w-50 mx-auto" type="file" id="dateiEingabe" text="Upload .csv!" onchange="readFile()">
+                        <br />
+                        <br />
+                    </p>
+                </div>
+            </div>
+            <div class="row" id="divErgebnisse" style="display:none">
+                <div class="col">
+                    <label>Dein Median liegt bei nur</label>
+                    <br />
+                    <label id="labelMedianInsgesamt" style="font-size:xx-large;font-weight:900;color:darkgreen;">200 Sekunden</label>
+                    <br />
+                    <label>Super gemacht!</label>
+                    <canvas id="diagrammMedianJeTag"></canvas>
+                    <canvas id="diagramMedianJeKw"></canvas>
+                </div>
                 <div class="col">
                     <label>Du hast insgesamt</label>
                     <br />
@@ -269,16 +321,6 @@
                     <br />
                     <label>gewürfelt!</label>
                     <canvas id="diagramAnzahlJeKw"></canvas>
-
-                </div>
-                <div class="col">
-                    <label>Dein Median liegt bei nur</label>
-                    <br />
-                    <label id="labelMedianInsgesamt" style="font-size:xx-large;font-weight:900;color:darkgreen;">200 Sekunden</label>
-                    <br />
-                    <label>Super gemacht!</label>
-                    <canvas id="diagramMedianJeKw"></canvas>
-
                 </div>
             </div>           
         </div>
