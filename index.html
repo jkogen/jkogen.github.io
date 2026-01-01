@@ -1,0 +1,256 @@
+<html data-bs-theme="dark">
+
+    <head>
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI" crossorigin="anonymous"></script>
+        <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+        <script type="text/javascript">
+            class WuerfelErgebnis {
+                constructor(datum, zeit, scramble) {
+                    this.datum = new Date(datum.replace(' ', 'T'));
+                    this.zeitInSekkunden = getZeitInSekunden(zeit);
+                    this.scramble = scramble;
+                    this.kw = getKalenderwoche(this.datum);
+
+                    //TODO man muesste den Monat anhand der KW ermitteln, weil die Datumswerte je KW in zwei Monate gehen
+                    this.monatsbezeichnung = new Intl.DateTimeFormat('de-DE', {month: 'long'}).format(this.datum);
+                    this.jahrMonatKw = this.datum.getFullYear() + "\r\nKW" +  this.kw + "\r\n" + this.monatsbezeichnung;
+                }
+            }
+
+            const wuerfelErgebnisse = [];                
+            let delayed;
+            let options = {
+                        animation: {
+                            onComplete: () => {
+                                delayed = true;
+                            },
+                            delay: (context)=> {
+                                let delay = 0;
+                                if(context.type === 'data' && context.mode === 'default' && !delayed) {
+                                    delay = context.dataIndex * 500 + context.datasetIndex * 100;
+                                }
+                                return delay;
+                            },
+                        },
+                        scales: {
+                            x: {
+                                ticks: {
+                                    callback: function(value){
+                                        return this.getLabelForValue(value).split('\r\n');
+                                    },
+                                    maxRotation: 0,
+                                    minRotation: 0
+                                }
+                            },
+                            y: { beginAtZero: true }
+                        }
+                    }
+
+            function readFile() {
+                const myFile = document.getElementById("dateiEingabe").files[0];
+                const reader = new FileReader();
+                reader.readAsText(myFile);
+
+                //erst ausgeben wenn der reader zu ende ist (async)
+                reader.onload = function(e) {
+
+                    var lineNumber = 0;
+                    const splittedResults = reader.result.split("\r\n");
+                    splittedResults.forEach(line => {
+
+                        lineNumber++;
+
+                        //Die ersten beiden Zeilen sind header
+                        if(lineNumber < 3) {
+                            return;
+                        }
+
+                        var splittedLine = line.split("	");
+
+                        if(splittedLine.length < 4) {
+                            return;
+                        }
+
+                        var datum = splittedLine[0];
+                        var zeit = splittedLine[1];
+                        var scramble = splittedLine[4];
+                        wuerfelErgebnisse.push(new WuerfelErgebnis(datum, zeit, scramble))
+                    });
+
+                    document.getElementById("divErgebnisse").style.display="block";
+                    document.getElementById("labelInsgesamteAnzahl").innerHTML = wuerfelErgebnisse.length + " x";
+                    document.getElementById("labelMedianInsgesamt").innerHTML = medianBerechnen(wuerfelErgebnisse) + " Sekunden";
+
+                    anzahlJeKwAuswerten();
+                    medianJeKwAuswerten();
+                }
+            }
+
+            function getZeitInSekunden(zeitString) {
+                if(zeitString.includes(':')) {
+                    //Format MM:SS.ms
+                    const [min, sek] = zeitString.split(":");
+                    return parseFloat(min) * 60 + parseFloat(sek);
+                } else {
+                    return parseFloat(zeitString);
+                }
+            }
+
+            function medianBerechnen(daten) {
+                var sortierteSekkunden = daten.map(obj => obj.zeitInSekkunden).sort((a, b) => a - b);
+                const mitte = sortierteSekkunden.length % 2 == 0 ?  sortierteSekkunden.length / 2 : ( sortierteSekkunden.length + 1) / 2;
+                return sortierteSekkunden[mitte];
+            }
+
+            function anzahlJeKwAuswerten(){
+                var daten = wuerfelErgebnisse.reduce((accumulator, wuerfelErgebnis) => {
+                    const wert = wuerfelErgebnis.jahrMonatKw;
+                    accumulator[wert] = (accumulator[wert] || 0) + 1;
+                    return accumulator;
+                }, {});
+
+                console.log(JSON.stringify(daten));
+
+                var sortierteDaten = Object.keys(daten)
+                    .sort()
+                    .reduce((accumulator, key) => {
+                        accumulator[key] = daten[key];
+                        return accumulator;
+                    }, {});
+
+                console.log(JSON.stringify(sortierteDaten));
+                const ctx = document.getElementById('diagramAnzahlJeKw').getContext('2d');
+
+                new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: Object.keys(sortierteDaten),  // KW als x-Achse: ['46', '47', '48', '49']
+                        datasets: [{
+                            label: 'Anzahl pro Kalenderwoche',
+                            data: Object.values(sortierteDaten), // Werte als y-Achse: [57, 120, 160, 6]
+                            backgroundColor: 'rgba(54, 162, 235, 0.5)',
+                            hoverBackgroundColor: '#3366FF',
+                            borderColor: 'rgba(54, 162, 235, 1)',
+                            borderWidth: 2,
+                            borderRadius: 5,
+                            borderSkipped: false
+                        }]
+                    },
+                    options: options
+                });
+            }
+
+            function medianJeKwAuswerten() {
+                const gruppiert = wuerfelErgebnisse.reduce((accumulator, wuerfelErgebnis) => {
+                    const kkey = wuerfelErgebnis.jahrMonatKw;
+
+                    //Schluessel erstellen, damit im Nachhinein auch erstmalig ein Objekt dazu gezwischtert werden kann
+                    if(!accumulator[kkey]) {
+                        accumulator[kkey] = []
+                    }
+
+                    accumulator[kkey].push(wuerfelErgebnis);
+
+                    return accumulator;
+                }, []);
+
+                var medians = [];
+
+                Object.keys(gruppiert).forEach(kw => {
+                    var medianErgebnis = medianBerechnen(gruppiert[kw]);
+                    medians[kw] = medianErgebnis;
+                });
+
+                //TODO richtig sortieren
+                var mediansSortiert = Object.keys(medians)
+                    .sort()
+                    .reduce((accumulator, key) => {
+                        accumulator[key] = medians[key];
+                        return accumulator;
+                    }, {});
+
+                console.log(JSON.stringify(medians));
+                
+                const canvasZweiDContext = document.getElementById('diagramMedianJeKw').getContext('2d');
+                new Chart(canvasZweiDContext, {
+                    type: 'bar',
+                    data: {
+                        labels: Object.keys(mediansSortiert),
+                        datasets: [{
+                            label: "Median je KW",
+                            data: Object.values(mediansSortiert),
+                            backgroundColor: 'rgba(54, 162, 235, 0.5)',
+                            hoverBackgroundColor: '#3366FF',
+                            borderColor: 'rgba(54, 162, 235, 1)',
+                            borderWidth: 2,
+                            borderRadius: 5,
+                            borderSkipped: false
+                        }]
+                    },
+                    options: options
+                });
+            }
+
+            function getMonatsbezeichnung(datum) {
+                return new Intl.DateTimeFormat('de-DE', {month: 'long'}).format(datum);
+            }
+
+            function getKalenderwoche(datum){
+                const d=new Date(datum);
+                const januar = new Date(d.getFullYear(), 0, 1);
+                const tageSeitJanuar = Math.floor((d - januar) / (24 * 60 * 60 * 1000));
+                var kw = Math.ceil((tageSeitJanuar + januar.getDate() + 1) / 7);
+                return kw;
+            }
+        </script>
+
+        <style>
+            body {
+                padding: 50px;
+                background: black;
+            }
+
+        </style>
+    </head>
+
+    <body style="text-align:center">
+        <img src="cube.jpg" height="250px" style="border-radius: 20px"/>
+        <br />
+        <br />
+        <h1>Cube-Statistikboss</h1>
+        <hr>
+        <p>
+            Hier kannst du deine Cube-Files analysieren lassen
+            <br />
+            <br />
+            <input class="form-control w-50 mx-auto" type="file" id="dateiEingabe" text="Upload .csv!" onchange="readFile()">
+            <br />
+            <br />
+        </p>
+
+        <div class="container" id="divErgebnisse" style="display:none">
+            <div class="row">
+                <div class="col">
+                    <label>Du hast insgesamt</label>
+                    <br />
+                    <label id="labelInsgesamteAnzahl" style="font-size:xx-large;font-weight:900;color:darkgreen;">50 x</label>
+                    <br />
+                    <label>gewürfelt!</label>
+                    <canvas id="diagramAnzahlJeKw"></canvas>
+
+                </div>
+                <div class="col">
+                    <label>Dein Median liegt bei nur</label>
+                    <br />
+                    <label id="labelMedianInsgesamt" style="font-size:xx-large;font-weight:900;color:darkgreen;">200 Sekunden</label>
+                    <br />
+                    <label>Super gemacht!</label>
+                    <canvas id="diagramMedianJeKw"></canvas>
+
+                </div>
+            </div>           
+        </div>
+    </body>
+</html>
