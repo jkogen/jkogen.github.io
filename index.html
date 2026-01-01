@@ -13,13 +13,13 @@
                     this.scramble = scramble;
                     this.kw = getKalenderwoche(this.datum);
 
-                    //TODO man muesste den Monat anhand der KW ermitteln, weil die Datumswerte je KW in zwei Monate gehen
-                    this.monatsbezeichnung = new Intl.DateTimeFormat('de-DE', {month: 'long'}).format(this.datum);
+                    //Man muss dne Monat anhand der KW beziehen, ansonsten ziehen sich die KWs teils über zwei Monate
+                    this.monatsbezeichnung = getMonthFromWeek(this.kw, this.datum.getFullYear());
                     this.jahrMonatKw = this.datum.getFullYear() + "\r\nKW" +  this.kw + "\r\n" + this.monatsbezeichnung;
                 }
             }
 
-            const wuerfelErgebnisse = [];                
+            var wuerfelErgebnisse = [];                
             let delayed;
             let options = {
                         animation: {
@@ -49,9 +49,16 @@
                     }
 
             function readFile() {
+                //todo
+                //const initFile = document.getElementById("initFile").files[0];
+                //dateiAuslesen(initFile);
                 const myFile = document.getElementById("dateiEingabe").files[0];
+                dateiAuslesen(myFile);
+            }
+
+            function dateiAuslesen(dateiName) {
                 const reader = new FileReader();
-                reader.readAsText(myFile);
+                reader.readAsText(dateiName);
 
                 //erst ausgeben wenn der reader zu ende ist (async)
                 reader.onload = function(e) {
@@ -79,6 +86,7 @@
                         wuerfelErgebnisse.push(new WuerfelErgebnis(datum, zeit, scramble))
                     });
 
+                    //todo wieder nach oben
                     document.getElementById("divErgebnisse").style.display="block";
                     document.getElementById("labelInsgesamteAnzahl").innerHTML = wuerfelErgebnisse.length + " x";
                     document.getElementById("labelMedianInsgesamt").innerHTML = medianBerechnen(wuerfelErgebnisse) + " Sekunden";
@@ -204,6 +212,27 @@
                 var kw = Math.ceil((tageSeitJanuar + januar.getDate() + 1) / 7);
                 return kw;
             }
+
+            function getMonthFromWeek(week, year) {
+                // Erster Tag des Jahres
+                const firstDayOfYear = new Date(year, 0, 1);
+                // Wochentag des 1. Januar (0 = Sonntag, 1 = Montag, ..., 6 = Samstag)
+                const dayOfWeek = firstDayOfYear.getDay();
+
+                // Berechne den ersten Montag des Jahres
+                const daysUntilMonday = (1 - dayOfWeek + 7) % 7;
+                const firstMonday = new Date(firstDayOfYear);
+                firstMonday.setDate(firstDayOfYear.getDate() + daysUntilMonday);
+
+                // Berechne den Montag der gewünschten Kalenderwoche
+                const mondayOfWeek = new Date(firstMonday);
+                mondayOfWeek.setDate(firstMonday.getDate() + (week - 1) * 7);
+
+                // Monat aus dem Datum extrahieren (0-basiert, daher +1)
+                const month = mondayOfWeek.getMonth() + 1;
+                const dateWithMonth = new Date(year, month, 1);
+                return new Intl.DateTimeFormat('de-DE', {month: 'long'}).format(dateWithMonth);
+            }
         </script>
 
         <style>
@@ -225,6 +254,7 @@
             Hier kannst du deine Cube-Files analysieren lassen
             <br />
             <br />
+            <input type="file" id="initFile" value="init.csv" style="display:none" />
             <input class="form-control w-50 mx-auto" type="file" id="dateiEingabe" text="Upload .csv!" onchange="readFile()">
             <br />
             <br />
