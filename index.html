@@ -1,9 +1,11 @@
 <html data-bs-theme="dark">
 
     <head>
+        <script src="https://momentjs.com/downloads/moment.js"></script>
         <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
         <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI" crossorigin="anonymous"></script>
         <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-moment@1.0.1"></script>
 
         <script type="text/javascript">
             class WuerfelErgebnis {
@@ -91,6 +93,7 @@
                     document.getElementById("labelInsgesamteAnzahl").innerHTML = wuerfelErgebnisse.length + " x";
                     document.getElementById("labelMedianInsgesamt").innerHTML = medianBerechnen(wuerfelErgebnisse) + " Sekunden";
 
+                    streuungAuswerten();
                     anzahlJeKwAuswerten();
                     medianJeKwAuswerten();
                     medianJeTagAuswerten();
@@ -189,6 +192,38 @@
 
                     },
                     options: options
+                });
+            }
+
+            function streuungAuswerten() {
+                const canvasZweiDContext = document.getElementById('diagrammStreuung').getContext('2d');
+                const datenAufbereitet =  wuerfelErgebnisse.map(item => ({
+                    x: new Date(item.datum),
+                    y: item.zeitInSekkunden
+                }));
+
+                new Chart(canvasZweiDContext, {
+                    type: 'scatter',
+                    data: {
+                        datasets: [{
+                            data: datenAufbereitet
+                        }]
+                    },
+                    options: {
+                        scales: {
+                        x: {
+                            type: 'time',
+                            distribution: 'series',  // Stellt sicher, dass nur Datumsangaben mit Daten skaliert werden
+                            time: {
+                            unit: 'day',
+                            tooltipFormat: 'DD.MM.YYYY',
+                                displayFormats: {
+                                    day: 'DD.MM.yyyy'
+                                }
+                            },
+                        }
+                        },
+                    }
                 });
             }
 
@@ -311,17 +346,22 @@
                     <br />
                     <label id="labelMedianInsgesamt" style="font-size:xx-large;font-weight:900;color:darkgreen;">200 Sekunden</label>
                     <br />
-                    <label>Super gemacht!</label>
-                    <canvas id="diagrammMedianJeTag"></canvas>
-                    <canvas id="diagramMedianJeKw"></canvas>
-                </div>
-                <div class="col">
+                    <br />
                     <label>Du hast insgesamt</label>
                     <br />
                     <label id="labelInsgesamteAnzahl" style="font-size:xx-large;font-weight:900;color:darkgreen;">50 x</label>
                     <br />
                     <label>gewürfelt!</label>
+                    <label>Super gemacht!</label>
+                    <br />
+                    <br />
+                    <canvas id="diagrammStreuung"></canvas>
+                    <canvas id="diagrammMedianJeTag"></canvas>
+                    <canvas id="diagramMedianJeKw"></canvas>
                     <canvas id="diagramAnzahlJeKw"></canvas>
+                </div>
+                <div class="col">
+
                 </div>
             </div>           
         </div>
