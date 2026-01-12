@@ -66,10 +66,25 @@
                     document.getElementById("divErgebnisse").style.display="block";
                     document.getElementById("labelInsgesamteAnzahl").innerHTML = wuerfelErgebnisse.length + " x";
                     document.getElementById("labelMedianInsgesamt").innerHTML = medianBerechnen(wuerfelErgebnisse) + " Sekunden";
+                    var bestesErgebnis = bestZeitErmitteln(wuerfelErgebnisse);
+                    document.getElementById("bestZeit").innerHTML = bestesErgebnis.zeitInSekkunden + " Sekunden";
+                    document.getElementById("bestZeitTag").innerHTML = " und war am " + new moment(bestesErgebnis.datum).format('DD.MM.yyyy') + ". Du Tiger! 🐯";
 
                     streuungAuswerten();
                     anzahlAuswerten();
                 }
+            }
+
+            function bestZeitErmitteln(daten) {
+                var bestZeit = daten[0];
+
+                daten.forEach(a => {
+                    if(bestZeit.zeitInSekkunden > a.zeitInSekkunden)  {
+                        bestZeit = a;
+                    }
+                });
+
+                return bestZeit;
             }
 
             //todo moments verwenden
@@ -99,6 +114,14 @@
                     return accumulator;
                 }, {});
 
+                var durchschnittJeTag = [];
+
+                // Object.keys(anzahlJeKw).forEach(a =>  {
+                //     anzahlJeKw[a] = anzahlJeKw[a] / 7;
+
+                //     durchschnittJeTag.push(anzahlJeKw);
+                // });
+
                 var anzahljeTag = wuerfelErgebnisse.reduce((accumulator, wuerfelErgebnis) => {
                     var key = moment(wuerfelErgebnis.datum).format('YYYY-MM-DD');
                     accumulator[key] = (accumulator[key] || 0) + 1;
@@ -113,16 +136,16 @@
                                 type: 'bar',
                                 data: anzahljeTag,
                                 label: 'Anzahl je Tag',
-                                backgroundColor: 'rgba(54, 162, 235, 0.5)',
-                                hoverBackgroundColor: '#3366FF',
-                                borderColor: 'rgba(54, 162, 235, 1)',
+                                // backgroundColor: 'rgba(54, 162, 235, 0.5)',
+                                // hoverBackgroundColor: '#3366FF',
+                                // borderColor: 'rgba(54, 162, 235, 1)',
                                 borderWidth: 2,
-                                borderRadius: 5
+                                borderRadius: 3
                             }
                         //     ,{
                         //     type: 'line',
                         //     label: 'Anzahl pro Kalenderwoche',
-                        //     data: anzahlJeKw // Werte als y-Achse: [57, 120, 160, 6]
+                        //     data: durchschnittJeTag // Werte als y-Achse: [57, 120, 160, 6]
                         // }
                     ]
                     },
@@ -158,7 +181,7 @@
 
             function streuungAuswerten() {
                 const canvasZweiDContext = document.getElementById('diagrammStreuung').getContext('2d');
-                const datenAufbereitet =  wuerfelErgebnisse.map(item => ({
+                const streuWerte =  wuerfelErgebnisse.map(item => ({
                     x: new Date(item.datum),
                     y: item.zeitInSekkunden
                 }));
@@ -217,18 +240,25 @@
                 new Chart(canvasZweiDContext, {
                     
                     data: {
-                        datasets: [ {
-                            type: 'line',
-                            data: mediansJeTag,
-                            label: 'Tagesmedian'
-                        }, {
+                        datasets: [ {                        
                             type: 'line',
                             data: mediansJeKw,
-                            label: 'Wochenmedian'
+                            label: 'Wochenmedian',
+                            borderColor: 'rgba(255, 193, 7, 0.9)',
+                            backgroundColor: 'rgba(255, 113, 67, 0.7)',
+                            fill: false // sonst würden das chart zum scatter mutieren
                         }, {
+                            type: 'line',
+                            data: mediansJeTag,
+                            label: 'Tagesmedian',
+                            borderColor: 'rgba(0, 123, 255, 0.6)',
+                            backgroundColor: 'rgba(0, 123, 255, 0.6)',
+                            fill: false // sonst würden das chart zum scatter mutieren
+                        },{
                             type: 'scatter',
-                            data: datenAufbereitet,
-                            label: 'Tageswerte'
+                            data: streuWerte,
+                            label: 'Tageswerte',
+                            backgroundColor: 'rgba(90, 47, 49, 0.6)'
                         }]
                     },
                     options: {
@@ -252,7 +282,7 @@
                             delay: (context)=> {
                                 let delay = 0;
                                 if(context.type === 'data' && context.mode === 'default' && !delayed) {
-                                    delay = context.dataIndex * 10 + context.datasetIndex * 200;
+                                    delay = context.dataIndex * 5 + context.datasetIndex * 5;
                                 }
                                 return delay;
                             },
@@ -260,7 +290,6 @@
                     }
                 });
             }
-
 
             //todo moments
             function getMonatsbezeichnung(datum) {
@@ -330,18 +359,23 @@
             </div>
             <div id="divErgebnisse" style="display:none">
                 <div class="row">
-                    <label>Dein Median liegt bei nur</label>
+                    <label>Deine beste Zeit ist </label>
+                    <label id="bestZeit" style="font-size:xx-large;font-weight:900;color:darkgreen;">x Sekunden</label>
+                    <label id="bestZeitTag">und war am  dd.MM.yyyy. Klasse!</label>
                     <br />
+                    <br />
+                    <br />              
+                    <label>Dein Median liegt insgesamt bei nur</label>
                     <label id="labelMedianInsgesamt" style="font-size:xx-large;font-weight:900;color:darkgreen;">200 Sekunden</label>
                     <br />
                     <br />
                     <br />
                     <label>Du hast insgesamt</label>
-                    <br />
-                    <label id="labelInsgesamteAnzahl" style="font-size:xx-large;font-weight:900;color:darkgreen;">50 x</label>
-                    <br />
+                    <label id="labelInsgesamteAnzahl" style="font-size:xx-large;font-weight:900;color:darkgreen;">50 x </label>
                     <label>gewürfelt!</label>
                     <label>Super gemacht!</label>
+                    <br />
+                    <br />
                     <br />
                     <br />
                     <br />
@@ -359,7 +393,6 @@
         </div>
     </body>
 </html>
-
 
 
 
