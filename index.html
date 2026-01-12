@@ -23,32 +23,6 @@
 
             var wuerfelErgebnisse = [];                
             let delayed;
-            let options = {
-                        animation: {
-                            onComplete: () => {
-                                delayed = true;
-                            },
-                            delay: (context)=> {
-                                let delay = 0;
-                                if(context.type === 'data' && context.mode === 'default' && !delayed) {
-                                    delay = context.dataIndex * 50 + context.datasetIndex * 200;
-                                }
-                                return delay;
-                            },
-                        },
-                        scales: {
-                            x: {
-                                ticks: {
-                                    callback: function(value){
-                                        return this.getLabelForValue(value).split('\r\n');
-                                    },
-                                    maxRotation: 0,
-                                    minRotation: 0
-                                }
-                            },
-                            y: { beginAtZero: true }
-                        }
-                    }
 
             function readFile() {
                 //todo
@@ -94,12 +68,11 @@
                     document.getElementById("labelMedianInsgesamt").innerHTML = medianBerechnen(wuerfelErgebnisse) + " Sekunden";
 
                     streuungAuswerten();
-                    anzahlJeKwAuswerten();
-                    medianJeKwAuswerten();
-                    medianJeTagAuswerten();
+                    anzahlAuswerten();
                 }
             }
 
+            //todo moments verwenden
             function getZeitInSekunden(zeitString) {
                 if(zeitString.includes(':')) {
                     //Format MM:SS.ms
@@ -116,98 +89,42 @@
                 return sortierteSekkunden[mitte];
             }
 
-            function anzahlJeKwAuswerten(){
-                var daten = wuerfelErgebnisse.reduce((accumulator, wuerfelErgebnis) => {
-                    const wert = wuerfelErgebnis.jahrMonatKw;
-                    accumulator[wert] = (accumulator[wert] || 0) + 1;
+            function anzahlAuswerten(){
+                var anzahlJeKw = wuerfelErgebnisse.reduce((accumulator, wuerfelErgebnis) => {
+                    
+                    var jahr = wuerfelErgebnis.jahrMonatKw.split("\r\n")[0];
+                    var kwSplit = wuerfelErgebnis.jahrMonatKw.split("\r\n")[1].split("KW")[1];
+                    var key = moment().year(jahr).isoWeek(kwSplit).isoWeekday(1).format('YYYY-MM-DD');
+                    accumulator[key] = (accumulator[key] || 0) + 1;
                     return accumulator;
                 }, {});
 
-                console.log(JSON.stringify(daten));
+                var anzahljeTag = wuerfelErgebnisse.reduce((accumulator, wuerfelErgebnis) => {
+                    var key = moment(wuerfelErgebnis.datum).format('YYYY-MM-DD');
+                    accumulator[key] = (accumulator[key] || 0) + 1;
+                    return accumulator;
+                }, {});
 
-                var sortierteDaten = Object.keys(daten)
-                    .sort()
-                    .reduce((accumulator, key) => {
-                        accumulator[key] = daten[key];
-                        return accumulator;
-                    }, {});
-
-                console.log(JSON.stringify(sortierteDaten));
                 const ctx = document.getElementById('diagramAnzahlJeKw').getContext('2d');
 
                 new Chart(ctx, {
-                    type: 'bar',
-                    data: {
-                        labels: Object.keys(sortierteDaten),  // KW als x-Achse: ['46', '47', '48', '49']
-                        datasets: [{
-                            label: 'Anzahl pro Kalenderwoche',
-                            data: Object.values(sortierteDaten), // Werte als y-Achse: [57, 120, 160, 6]
-                            backgroundColor: 'rgba(54, 162, 235, 0.5)',
-                            hoverBackgroundColor: '#3366FF',
-                            borderColor: 'rgba(54, 162, 235, 1)',
-                            borderWidth: 2,
-                            borderRadius: 5,
-                            borderSkipped: false
-                        }]
-                    },
-                    options: options
-                });
-            }
-
-            function medianJeTagAuswerten() {
-
-                var gruppierteDaten = wuerfelErgebnisse.reduce((accu, obj) => {
-                    const key = obj.datum.toISOString().split('T')[0];
-
-                    if(!accu[key]) {
-                        accu[key] = [];
-                    }
-
-                    accu[key].push(obj);
-                    return accu;
-                }, []);
-
-                var mediansJeTag = [];
-
-                Object.keys(gruppierteDaten).forEach(datum => {
-                    var medianAmTag = medianBerechnen(gruppierteDaten[datum]);
-                    mediansJeTag[datum] = medianAmTag;
-                });
-
-                var sortierteDaten = Object.keys(mediansJeTag)
-                                        .sort()
-                                        .reduce((acc, key) => {
-                                            acc[key] = mediansJeTag[key]
-                                            return acc;
-                                        }, []);
-
-                const canvas2dContext = document.getElementById('diagrammMedianJeTag').getContext('2d');
-                new Chart(canvas2dContext, {
-                    type: 'line',
-                    data: {
-                        labels: Object.keys(sortierteDaten),
-                        datasets: [{
-                            data: Object.values(sortierteDaten)
-                        }]
-
-                    },
-                    options: options
-                });
-            }
-
-            function streuungAuswerten() {
-                const canvasZweiDContext = document.getElementById('diagrammStreuung').getContext('2d');
-                const datenAufbereitet =  wuerfelErgebnisse.map(item => ({
-                    x: new Date(item.datum),
-                    y: item.zeitInSekkunden
-                }));
-
-                new Chart(canvasZweiDContext, {
-                    type: 'scatter',
                     data: {
                         datasets: [{
-                            data: datenAufbereitet
-                        }]
+                                type: 'bar',
+                                data: anzahljeTag,
+                                label: 'Anzahl je Tag',
+                                backgroundColor: 'rgba(54, 162, 235, 0.5)',
+                                hoverBackgroundColor: '#3366FF',
+                                borderColor: 'rgba(54, 162, 235, 1)',
+                                borderWidth: 2,
+                                borderRadius: 5
+                            }
+                        //     ,{
+                        //     type: 'line',
+                        //     label: 'Anzahl pro Kalenderwoche',
+                        //     data: anzahlJeKw // Werte als y-Achse: [57, 120, 160, 6]
+                        // }
+                    ]
                     },
                     options: {
                         scales: {
@@ -222,13 +139,56 @@
                                 }
                             },
                         }
-                        },
+                        }, 
+                        animation: {
+                            onComplete: () => {
+                                delayed = true;
+                            },
+                            delay: (context)=> {
+                                let delay = 0;
+                                if(context.type === 'data' && context.mode === 'default' && !delayed) {
+                                    delay = context.dataIndex * 100 + context.datasetIndex * 200;
+                                }
+                                return delay;
+                            },
+                        }
                     }
                 });
             }
 
-            function medianJeKwAuswerten() {
-                const gruppiert = wuerfelErgebnisse.reduce((accumulator, wuerfelErgebnis) => {
+            function streuungAuswerten() {
+                const canvasZweiDContext = document.getElementById('diagrammStreuung').getContext('2d');
+                const datenAufbereitet =  wuerfelErgebnisse.map(item => ({
+                    x: new Date(item.datum),
+                    y: item.zeitInSekkunden
+                }));
+
+
+                var gruppierteDaten = wuerfelErgebnisse.reduce((accu, obj) => {
+                    //todo moments
+                    const key = obj.datum.toISOString().split('T')[0];
+                    //const key = obj.datum;
+
+                    if(!accu[key]) {
+                        accu[key] = [];
+                    }
+
+                    accu[key].push(obj);
+                    return accu;
+                }, []);
+
+                var mediansJeTag = [];
+
+                Object.keys(gruppierteDaten).forEach(datum => {
+                    var medianAmTag = medianBerechnen(gruppierteDaten[datum]);
+                    mediansJeTag.push({
+                        x: datum,
+                        y: medianAmTag
+                    });
+                    //mediansJeTag[datum] = medianAmTag;
+                });
+
+                const gruppiertNachKw = wuerfelErgebnisse.reduce((accumulator, wuerfelErgebnis) => {
                     const kkey = wuerfelErgebnis.jahrMonatKw;
 
                     //Schluessel erstellen, damit im Nachhinein auch erstmalig ein Objekt dazu gezwischtert werden kann
@@ -241,46 +201,73 @@
                     return accumulator;
                 }, []);
 
-                var medians = [];
+                var mediansJeKw = [];
 
-                Object.keys(gruppiert).forEach(kw => {
-                    var medianErgebnis = medianBerechnen(gruppiert[kw]);
-                    medians[kw] = medianErgebnis;
+                Object.keys(gruppiertNachKw).forEach(kw => {
+                    var medianErgebnis = medianBerechnen(gruppiertNachKw[kw]);
+                    var jahr = kw.split("\r\n")[0];
+                    var kwSplit = kw.split("\r\n")[1].split("KW")[1];
+                    var key = moment().year(jahr).isoWeek(kwSplit).isoWeekday(1).format('YYYY-MM-DD');
+                    mediansJeKw.push({
+                        x: key,
+                        y: medianErgebnis
+                    });
                 });
 
-                var mediansSortiert = Object.keys(medians)
-                    .sort()
-                    .reduce((accumulator, key) => {
-                        accumulator[key] = medians[key];
-                        return accumulator;
-                    }, {});
-
-                console.log(JSON.stringify(medians));
-                
-                const canvasZweiDContext = document.getElementById('diagramMedianJeKw').getContext('2d');
                 new Chart(canvasZweiDContext, {
-                    type: 'bar',
+                    
                     data: {
-                        labels: Object.keys(mediansSortiert),
-                        datasets: [{
-                            label: "Median je KW",
-                            data: Object.values(mediansSortiert),
-                            backgroundColor: 'rgba(54, 162, 235, 0.5)',
-                            hoverBackgroundColor: '#3366FF',
-                            borderColor: 'rgba(54, 162, 235, 1)',
-                            borderWidth: 2,
-                            borderRadius: 5,
-                            borderSkipped: false
+                        datasets: [ {
+                            type: 'line',
+                            data: mediansJeTag,
+                            label: 'Tagesmedian'
+                        }, {
+                            type: 'line',
+                            data: mediansJeKw,
+                            label: 'Wochenmedian'
+                        }, {
+                            type: 'scatter',
+                            data: datenAufbereitet,
+                            label: 'Tageswerte'
                         }]
                     },
-                    options: options
+                    options: {
+                        scales: {
+                            x: {
+                                type: 'time',
+                                distribution: 'series',  // Stellt sicher, dass nur Datumsangaben mit Daten skaliert werden
+                                time: {
+                                unit: 'day',
+                                tooltipFormat: 'DD.MM.YYYY',
+                                    displayFormats: {
+                                        day: 'DD.MM.yyyy'
+                                    }
+                                },
+                            }
+                        },
+                        animation: {
+                            onComplete: () => {
+                                delayed = true;
+                            },
+                            delay: (context)=> {
+                                let delay = 0;
+                                if(context.type === 'data' && context.mode === 'default' && !delayed) {
+                                    delay = context.dataIndex * 10 + context.datasetIndex * 200;
+                                }
+                                return delay;
+                            },
+                        }
+                    }
                 });
             }
 
+
+            //todo moments
             function getMonatsbezeichnung(datum) {
                 return new Intl.DateTimeFormat('de-DE', {month: 'long'}).format(datum);
             }
 
+            //todo moments
             function getKalenderwoche(datum){
                 const d=new Date(datum);
                 const januar = new Date(d.getFullYear(), 0, 1);
@@ -289,6 +276,7 @@
                 return kw;
             }
 
+            //todo moments
             function getMonthFromWeek(week, year) {
                 // Erster Tag des Jahres
                 const firstDayOfYear = new Date(year, 0, 1);
@@ -340,11 +328,12 @@
                     </p>
                 </div>
             </div>
-            <div class="row" id="divErgebnisse" style="display:none">
-                <div class="col">
+            <div id="divErgebnisse" style="display:none">
+                <div class="row">
                     <label>Dein Median liegt bei nur</label>
                     <br />
                     <label id="labelMedianInsgesamt" style="font-size:xx-large;font-weight:900;color:darkgreen;">200 Sekunden</label>
+                    <br />
                     <br />
                     <br />
                     <label>Du hast insgesamt</label>
@@ -355,13 +344,16 @@
                     <label>Super gemacht!</label>
                     <br />
                     <br />
-                    <canvas id="diagrammStreuung"></canvas>
-                    <canvas id="diagrammMedianJeTag"></canvas>
-                    <canvas id="diagramMedianJeKw"></canvas>
-                    <canvas id="diagramAnzahlJeKw"></canvas>
+                    <br />
                 </div>
-                <div class="col">
 
+                <div class="row">
+                    <div class="col">
+                        <canvas id="diagrammStreuung"></canvas>
+                    </div>
+                    <div class="col">
+                        <canvas id="diagramAnzahlJeKw"></canvas>
+                    </div>
                 </div>
             </div>           
         </div>
