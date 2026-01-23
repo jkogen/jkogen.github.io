@@ -13,10 +13,10 @@
                     this.datum = new Date(datum.replace(' ', 'T'));
                     this.zeitInSekkunden = getZeitInSekunden(zeit);
                     this.scramble = scramble;
-                    this.kw = getKalenderwoche(this.datum);
+                    this.kw = moment(this.datum).isoWeek();
 
                     //Man muss dne Monat anhand der KW beziehen, ansonsten ziehen sich die KWs teils über zwei Monate
-                    this.monatsbezeichnung = getMonthFromWeek(this.kw, this.datum.getFullYear());
+                    this.monatsbezeichnung = moment(this.datum).format('MMMM');
                     this.jahrMonatKw = this.datum.getFullYear() + "\r\nKW" +  this.kw + "\r\n" + this.monatsbezeichnung;
                 }
             }
@@ -99,8 +99,12 @@
             }
 
             function medianBerechnen(daten) {
+                if(daten.length == 1) {
+                    return null;
+                }
+
                 var sortierteSekkunden = daten.map(obj => obj.zeitInSekkunden).sort((a, b) => a - b);
-                const mitte = sortierteSekkunden.length % 2 == 0 ?  sortierteSekkunden.length / 2 : ( sortierteSekkunden.length + 1) / 2;
+                const mitte = sortierteSekkunden.length % 2 == 0 ?  sortierteSekkunden.length / 2 : ( sortierteSekkunden.length - 1) / 2;
                 return sortierteSekkunden[mitte];
             }
 
@@ -211,6 +215,9 @@
                     //mediansJeTag[datum] = medianAmTag;
                 });
 
+                //TODO Hier nicht jahrMonatKw als key verwenden!
+                //TODO
+                //TODO
                 const gruppiertNachKw = wuerfelErgebnisse.reduce((accumulator, wuerfelErgebnis) => {
                     const kkey = wuerfelErgebnis.jahrMonatKw;
 
@@ -228,8 +235,21 @@
 
                 Object.keys(gruppiertNachKw).forEach(kw => {
                     var medianErgebnis = medianBerechnen(gruppiertNachKw[kw]);
+
+                    if(medianErgebnis === null) {
+                        return;
+                    }
+
+                    //TODO irgendwie ist das Konstrukt dumm, das Datum aus dem KW-String heraus zu bauscheln
+                    //Man müsste hier direkt auf das Datum zugreifen
                     var jahr = kw.split("\r\n")[0];
                     var kwSplit = kw.split("\r\n")[1].split("KW")[1];
+
+                    //Erste Kalenderwoche im Dezember soll die letzte Jahreswoche annehmen
+                    if(kw.includes('KW1') && kw.includes('December')) {
+                        kwSplit = moment().year(jahr).isoWeeksInYear();
+                    }
+
                     var key = moment().year(jahr).isoWeek(kwSplit).isoWeekday(1).format('YYYY-MM-DD');
                     mediansJeKw.push({
                         x: key,
@@ -289,42 +309,6 @@
                         }
                     }
                 });
-            }
-
-            //todo moments
-            function getMonatsbezeichnung(datum) {
-                return new Intl.DateTimeFormat('de-DE', {month: 'long'}).format(datum);
-            }
-
-            //todo moments
-            function getKalenderwoche(datum){
-                const d=new Date(datum);
-                const januar = new Date(d.getFullYear(), 0, 1);
-                const tageSeitJanuar = Math.floor((d - januar) / (24 * 60 * 60 * 1000));
-                var kw = Math.ceil((tageSeitJanuar + januar.getDate() + 1) / 7);
-                return kw;
-            }
-
-            //todo moments
-            function getMonthFromWeek(week, year) {
-                // Erster Tag des Jahres
-                const firstDayOfYear = new Date(year, 0, 1);
-                // Wochentag des 1. Januar (0 = Sonntag, 1 = Montag, ..., 6 = Samstag)
-                const dayOfWeek = firstDayOfYear.getDay();
-
-                // Berechne den ersten Montag des Jahres
-                const daysUntilMonday = (1 - dayOfWeek + 7) % 7;
-                const firstMonday = new Date(firstDayOfYear);
-                firstMonday.setDate(firstDayOfYear.getDate() + daysUntilMonday);
-
-                // Berechne den Montag der gewünschten Kalenderwoche
-                const mondayOfWeek = new Date(firstMonday);
-                mondayOfWeek.setDate(firstMonday.getDate() + (week - 1) * 7);
-
-                // Monat aus dem Datum extrahieren (0-basiert, daher +1)
-                const month = mondayOfWeek.getMonth() + 1;
-                const dateWithMonth = new Date(year, month, 1);
-                return new Intl.DateTimeFormat('de-DE', {month: 'long'}).format(dateWithMonth);
             }
         </script>
 
@@ -393,6 +377,5 @@
         </div>
     </body>
 </html>
-
 
 
