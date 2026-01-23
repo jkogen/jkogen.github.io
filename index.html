@@ -11,6 +11,7 @@
             class WuerfelErgebnis {
                 constructor(datum, zeit, scramble) {
                     this.datum = new Date(datum.replace(' ', 'T'));
+
                     this.zeitInSekkunden = getZeitInSekunden(zeit);
                     this.scramble = scramble;
                     this.kw = moment(this.datum).isoWeek();
@@ -21,26 +22,51 @@
                 }
             }
 
+            var splittedLines = [];
             var wuerfelErgebnisse = [];                
             let delayed;
 
+            async function initFileAuslesen() {
+                await fetch("https://jkogen.github.io/tee.csv")
+                .then((respone) => respone.arrayBuffer())
+                .then((buffer) => {
+
+                    const decoder = new TextDecoder("UTF-8", { ignoreBOM: false });
+                    const text = decoder.decode(buffer);
+                    const text2 = text.slice(1).split("\n");
+                    var lineNumber = 0;
+
+                    text2.forEach(a => {
+
+                         lineNumber++;
+
+                        //Die ersten beiden Zeilen sind header
+                        if(lineNumber < 3) {
+                            return;
+                        }
+
+                        //sch#@! utf8 bom
+                        const enkodiert = a.split('').filter((char, index) => index % 2 === 1).join('');
+                        splittedLines.push(enkodiert.replace('\r', ''));
+                    });
+                }).catch((e) => alert(e));
+            }
+
             function readFile() {
-                //todo
-                //const initFile = document.getElementById("initFile").files[0];
-                //dateiAuslesen(initFile);
                 const myFile = document.getElementById("dateiEingabe").files[0];
                 dateiAuslesen(myFile);
             }
 
-            function dateiAuslesen(dateiName) {
+            async function dateiAuslesen(dateiName) {                
+                await initFileAuslesen();
+
                 const reader = new FileReader();
                 reader.readAsText(dateiName);
 
-                //erst ausgeben wenn der reader zu ende ist (async)
                 reader.onload = function(e) {
-
                     var lineNumber = 0;
-                    const splittedResults = reader.result.split("\r\n");
+                    var splittedResults = reader.result.split("\r\n");
+                    splittedResults = splittedResults.concat(splittedLines);
                     splittedResults.forEach(line => {
 
                         lineNumber++;
@@ -65,10 +91,10 @@
                     //todo wieder nach oben
                     document.getElementById("divErgebnisse").style.display="block";
                     document.getElementById("labelInsgesamteAnzahl").innerHTML = wuerfelErgebnisse.length + " x";
-                    document.getElementById("labelMedianInsgesamt").innerHTML = medianBerechnen(wuerfelErgebnisse) + " Sekunden";
+                    document.getElementById("labelMedianInsgesamt").innerHTML = medianBerechnen(wuerfelErgebnisse);
                     var bestesErgebnis = bestZeitErmitteln(wuerfelErgebnisse);
-                    document.getElementById("bestZeit").innerHTML = bestesErgebnis.zeitInSekkunden + " Sekunden";
-                    document.getElementById("bestZeitTag").innerHTML = " und war am " + new moment(bestesErgebnis.datum).format('DD.MM.yyyy') + ". Du Tiger! 🐯";
+                    document.getElementById("bestZeit").innerHTML = bestesErgebnis.zeitInSekkunden;
+                    document.getElementById("bestZeitTag").innerHTML = " vom " + new moment(bestesErgebnis.datum).format('DD.MM.yyyy') + ". Du Tiger! 🐯";
 
                     streuungAuswerten();
                     anzahlAuswerten();
@@ -194,8 +220,7 @@
                 var gruppierteDaten = wuerfelErgebnisse.reduce((accu, obj) => {
                     //todo moments
                     const key = obj.datum.toISOString().split('T')[0];
-                    //const key = obj.datum;
-
+                    
                     if(!accu[key]) {
                         accu[key] = [];
                     }
@@ -343,35 +368,34 @@
             </div>
             <div id="divErgebnisse" style="display:none">
                 <div class="row">
-                    <label>Deine beste Zeit ist </label>
-                    <label id="bestZeit" style="font-size:xx-large;font-weight:900;color:darkgreen;">x Sekunden</label>
-                    <label id="bestZeitTag">und war am  dd.MM.yyyy. Klasse!</label>
-                    <br />
-                    <br />
-                    <br />              
-                    <label>Dein Median liegt insgesamt bei nur</label>
-                    <label id="labelMedianInsgesamt" style="font-size:xx-large;font-weight:900;color:darkgreen;">200 Sekunden</label>
-                    <br />
-                    <br />
-                    <br />
-                    <label>Du hast insgesamt</label>
-                    <label id="labelInsgesamteAnzahl" style="font-size:xx-large;font-weight:900;color:darkgreen;">50 x </label>
-                    <label>gewürfelt!</label>
-                    <label>Super gemacht!</label>
-                    <br />
-                    <br />
-                    <br />
-                    <br />
-                    <br />
+                    <div class="col">
+                        <label>Deine beste Zeit ist </label>
+                        <label id="bestZeit" style="font-size:xx-large;font-weight:900;color:darkgreen;">x Sekunden</label>
+                        <label id="bestZeitTag">Zusatztext Klasse!</label>
+                    </div>   
+                    <div class="col">
+                        <label>Dein Insgesamt-Median ist</label>
+                        <label id="labelMedianInsgesamt" style="font-size:xx-large;font-weight:900;color:darkgreen;">200 Sekunden</label>
+                        <br />
+                        <label>Wie stark! 💪</label>
+                    </div>   
+                    <div class="col">
+                        <label>Du hast insgesamt</label>
+                        <label id="labelInsgesamteAnzahl" style="font-size:xx-large;font-weight:900;color:darkgreen;">50 x </label>
+                        <br />
+                        <label>gewürfelt! 😎</label>
+                    </div>   
+                </div>
+
+                <br />
+                <br />
+
+                <div class="row">
+                    <canvas id="diagrammStreuung"></canvas>
                 </div>
 
                 <div class="row">
-                    <div class="col">
-                        <canvas id="diagrammStreuung"></canvas>
-                    </div>
-                    <div class="col">
-                        <canvas id="diagramAnzahlJeKw"></canvas>
-                    </div>
+                    <canvas id="diagramAnzahlJeKw"></canvas>
                 </div>
             </div>           
         </div>
